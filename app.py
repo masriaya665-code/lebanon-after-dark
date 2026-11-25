@@ -55,14 +55,31 @@ def load():
 
 @st.cache_data
 def load_geo():
-    """Local file first, then download (works on Colab and Streamlit Cloud)."""
+    """Local file first, then download (works on Colab and Streamlit Cloud).
+    Pieces that share a district name are merged into one shape, so every piece gets colored."""
     try:
         if GEO_FILE.exists():
-            return json.loads(GEO_FILE.read_text())
-        with urllib.request.urlopen(GEO_URL, timeout=30) as r:
-            return json.loads(r.read().decode())
+            geo = json.loads(GEO_FILE.read_text())
+        else:
+            with urllib.request.urlopen(GEO_URL, timeout=30) as r:
+                geo = json.loads(r.read().decode())
     except Exception:
         return None
+    props = geo["features"][0]["properties"]
+    key = next((k for k in ("NAME_2", "shapeName", "name", "NAME") if k in props), None)
+    if key is None:
+        return geo
+    merged = {}
+    for f in geo["features"]:
+        name, g = f["properties"][key], f["geometry"]
+        if not g:
+            continue
+        polys = [g["coordinates"]] if g["type"] == "Polygon" else g["coordinates"]
+        if name not in merged:
+            merged[name] = {"type": "Feature", "properties": {key: name},
+                            "geometry": {"type": "MultiPolygon", "coordinates": []}}
+        merged[name]["geometry"]["coordinates"].extend(polys)
+    return {"type": "FeatureCollection", "features": list(merged.values())}
 
 
 def norm(s):
@@ -139,8 +156,8 @@ st.markdown(
 
 c1, c2, c3 = st.columns(3)
 c1.metric("Light lost, 2019 to 2022", f"{abs(drop):.0f}%")
-c2.metric("Darkest month", f"{trough:%b %Y}", f"{nat_idx[trough]:.0f}% of 2019", delta_color="off")
-c3.metric(f"Back today ({WINDOW} {LAST_YEAR})", f"{now_pct:.0f}%", "of 2019 light", delta_color="off")
+c2.metric(f"Darkest month ({nat_idx[trough]:.0f}% of 2019)", f"{trough:%b %Y}")
+c3.metric(f"Light back today, % of 2019 ({WINDOW} {LAST_YEAR})", f"{now_pct:.0f}%")
 
 # ---------------------------------------------------------------- 1. national story
 st.header("1. The fall and the slow return")
@@ -153,16 +170,16 @@ fig.add_trace(go.Scatter(x=nat_smooth.index, y=nat_smooth, mode="lines", line=di
                          name="12-month average", hovertemplate="%{x|%b %Y}: %{y:.0f}% (12-month avg)<extra></extra>"))
 fig.add_hline(y=100, line=dict(color=MUTED, width=1, dash="dot"))
 events = [
-    ("2019-10-01", "Oct 2019<br>financial crisis"),
-    ("2021-08-01", "Aug 2021<br>fuel shortages"),
-    (f"{trough:%Y-%m-%d}", f"{trough:%b %Y}<br>darkest month"),
-    ("2024-10-01", "Autumn 2024<br>conflict in the south"),
+    ("2019-10-01", "Oct 2019<br>financial crisis", 0, -50),
+    ("2021-08-01", "Aug 2021<br>fuel shortages", -75, 0),
+    (f"{trough:%Y-%m-%d}", f"{trough:%b %Y}<br>darkest month", 0, 45),
+    ("2024-10-01", "Autumn 2024<br>conflict in the south", -20, -75),
 ]
-for i, (d, label) in enumerate(events):
+for d, label, ax, ay in events:
     d = pd.Timestamp(d)
     y = nat_idx.get(d, nat_smooth.get(d, 50))
     fig.add_annotation(x=d, y=y, text=label, showarrow=True, arrowhead=0, arrowcolor=MUTED,
-                       ax=0, ay=-55 if i % 2 == 0 else 55, font=dict(size=11, color=INK),
+                       ax=ax, ay=ay, font=dict(size=11, color=INK),
                        bgcolor="rgba(255,255,255,0.85)")
 fig.update_yaxes(title=None, ticksuffix="%", range=[0, 130])
 show(style(fig, 420, legend=True))
@@ -270,7 +287,7 @@ share19 = piv.loc[pick, 2019] / nat_win[2019] * 100
 low_row = sub.loc[sub["idx_smooth"].idxmin()]
 k1, k2, k3 = st.columns(3)
 k1.metric("Share of national light, 2019", f"{share19:.1f}%")
-k2.metric("Lowest point (12-month avg)", f"{low_row['idx_smooth']:.0f}%", f"{low_row['date']:%b %Y}", delta_color="off")
+k2.metric(f"Lowest point, {low_row['date']:%b %Y}", f"{low_row['idx_smooth']:.0f}%")
 k3.metric(f"{LAST_YEAR} vs 2019", f"{level.loc[pick, LAST_YEAR]:.0f}%")
 
 fig = go.Figure()
