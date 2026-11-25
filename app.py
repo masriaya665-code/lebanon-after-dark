@@ -176,11 +176,11 @@ st.markdown(
 st.header("2. Find your district")
 year = st.select_slider("Year", options=list(range(2012, LAST_YEAR + 1)), value=LAST_YEAR)
 st.markdown(f"Light in {year} as a % of 2019 ({WINDOW} of each year, so years compare fairly). "
-            "Maroon = darker than 2019, navy = brighter.")
+            "The darker the district, the further it is below its 2019 light.")
 
 map_df = level[[year]].rename(columns={year: "pct"}).reset_index()
 map_df["pct"] = map_df["pct"].round(0)
-scale = [[0, MAROON], [0.5, "#EDEDED"], [1, NAVY]]
+scale = [[0, "#4A0B1D"], [0.4, MAROON], [1, "#EADCE0"]]
 geo = load_geo()
 drawn = False
 if geo is not None:
@@ -189,8 +189,8 @@ if geo is not None:
         map_df["geo_name"] = map_df["district"].map(mapping)
         fig = px.choropleth(map_df.dropna(subset=["geo_name"]), geojson=geo, locations="geo_name",
                             featureidkey=f"properties.{key}", color="pct", hover_name="district",
-                            color_continuous_scale=scale, range_color=[20, 180],
-                            color_continuous_midpoint=100, custom_data=["district", "pct"])
+                            color_continuous_scale=scale, range_color=[0, 100],
+                            custom_data=["district", "pct"])
         fig.update_traces(marker_line_color="white", marker_line_width=1,
                           hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]:.0f}% of 2019 light<extra></extra>")
         fig.update_geos(fitbounds="locations", visible=False, projection_type="mercator")
@@ -198,7 +198,8 @@ if geo is not None:
             dragmode=False,
             coloraxis_colorbar=dict(title=dict(text="% of 2019 light", side="top"), ticksuffix="%",
                                     orientation="h", x=0.5, xanchor="center", y=-0.02, yanchor="top",
-                                    len=0.9, thickness=10, tickvals=[20, 60, 100, 140, 180]),
+                                    len=0.9, thickness=10, tickvals=[0, 25, 50, 75, 100],
+                                    ticktext=["0%", "25%", "50%", "75%", "100%+"]),
         )
         fig = style(fig, 620)
         fig.update_layout(margin=dict(l=0, r=0, t=10, b=70))
