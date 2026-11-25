@@ -46,10 +46,23 @@ def show(fig):
 
 
 # ---------------------------------------------------------------- data
+# readable names for display; the raw names are kept for matching the map boundaries
+PRETTY = {
+    "ElMetn": "El Metn", "WestBekaa": "West Bekaa", "BintJbayl": "Bint Jbeil",
+    "Minieh-Danieh": "Minieh-Danniyeh", "Marjaayoun": "Marjayoun", "Rachiaya": "Rashaya",
+    "Kasrouane": "Keserwan", "Jubail": "Jbeil", "Baalbeck": "Baalbek", "Bcharre": "Bsharri",
+    "Nabatiyeh": "Nabatieh", "Zahleh": "Zahle",
+    "MountLebanon": "Mount Lebanon", "Baalbak-Hermel": "Baalbek-Hermel",
+}
+RAW = {v: k for k, v in PRETTY.items()}
+
+
 @st.cache_data
 def load():
     df = pd.read_csv(DATA_FILE, parse_dates=["date"])
     df["year"] = df["date"].dt.year
+    df["district"] = df["district"].replace(PRETTY)
+    df["governorate"] = df["governorate"].replace(PRETTY)
     return df
 
 
@@ -202,7 +215,9 @@ geo = load_geo()
 drawn = False
 if geo is not None:
     try:
-        key, mapping = match_geo(geo, map_df["district"])
+        raw_names = map_df["district"].map(lambda d: RAW.get(d, d))
+        key, raw_map = match_geo(geo, raw_names)
+        mapping = {d: raw_map[r] for d, r in zip(map_df["district"], raw_names) if r in raw_map}
         map_df["geo_name"] = map_df["district"].map(mapping)
         fig = px.choropleth(map_df.dropna(subset=["geo_name"]), geojson=geo, locations="geo_name",
                             featureidkey=f"properties.{key}", color="pct", hover_name="district",
@@ -257,7 +272,7 @@ if lens == "% of 2019 light":
                              marker=dict(color=NAVY, size=10, line=dict(color="white", width=2)),
                              hovertemplate=f"%{{y}}, {LAST_YEAR}: %{{x:.0f}}% of 2019<extra></extra>"))
     fig.add_vline(x=100, line=dict(color=MUTED, width=1, dash="dot"),
-                  annotation_text="2019 level", annotation_position="top")
+                  annotation_text="2019 level", annotation_position="bottom right")
     fig.update_xaxes(ticksuffix="%", range=[0, 125])
     show(style(fig, 720, legend=True))
     best, worst = dd["now"].idxmax(), dd["now"].idxmin()
@@ -321,6 +336,7 @@ fig.add_trace(go.Scatter(x=s["date"], y=s["smooth"], mode="lines", line=dict(col
                          name=hl, hovertemplate=f"{hl} %{{x|%b %Y}}: %{{y:.0f}}%<extra></extra>"))
 fig.add_annotation(x=s["date"].iloc[-1], y=s["smooth"].iloc[-1], text=f"<b>{hl}</b>", showarrow=False,
                    xanchor="left", xshift=6, font=dict(color=INK))
+fig.update_xaxes(range=[gov["date"].min(), gov["date"].max() + pd.DateOffset(months=20)])
 fig.add_hline(y=100, line=dict(color=MUTED, width=1, dash="dot"))
 fig.update_yaxes(ticksuffix="%", title=None)
 show(style(fig, 400))
@@ -330,9 +346,9 @@ st.caption("12-month average, 2019 = 100%. Gray lines are the other governorates
 with st.expander("How we built this"):
     st.markdown(f"""
 - **Data:** VIIRS monthly night-time lights (NASA/NOAA), summed over each of Lebanon's 26 districts, Jan 2012 to {MONTH_NAMES[LAST_MONTH-1]} {LAST_YEAR}.
-- **Cleaning:** four districts (Batroun, Jezzine, Minieh-Danieh, Nabatiyeh) were split across two governorates in the raw boundaries. We merged the pieces and assigned each district to the governorate holding most of its area.
+- **Cleaning:** four districts (Batroun, Jezzine, Minieh-Danniyeh, Nabatieh) were split across two governorates in the raw boundaries. We merged the pieces and assigned each district to the governorate holding most of its area.
 - **Comparisons:** every figure is relative to the 2019 average, the last year before the crisis. When comparing years we use the same months ({WINDOW}) so {LAST_YEAR} is not penalised for being incomplete.
-- **Smoothing:** a 12-month moving average removes seasonal swings and one-off spikes (for example June 2025 in Baalbeck and Hermel, likely harvest fires).
+- **Smoothing:** a 12-month moving average removes seasonal swings and one-off spikes (for example June 2025 in Baalbek and Hermel, likely harvest fires).
 - **Limits:** satellites see outdoor light (streets, signs, facades), not electricity use. Indoor lights running on solar batteries are mostly invisible, so night lights are a proxy for public power and activity, not a meter.
 - **Boundaries:** GADM 4.1 district boundaries.
 """)
