@@ -36,8 +36,9 @@ def style(fig, height=380, legend=False):
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, title=None),
         hoverlabel=dict(bgcolor="white", font=FONT),
     )
-    fig.update_xaxes(showgrid=False, linecolor="#D1D5DB", ticks="outside", tickcolor="#D1D5DB")
-    fig.update_yaxes(gridcolor="#EEF0F3", zeroline=False)
+    fig.update_xaxes(showgrid=False, linecolor="#D1D5DB", ticks="outside", tickcolor="#D1D5DB", fixedrange=True)
+    fig.update_yaxes(gridcolor="#EEF0F3", zeroline=False, fixedrange=True)
+    fig.update_layout(dragmode=False)
     return fig
 
 
@@ -271,13 +272,12 @@ if lens == "% of 2019 light":
     fig.add_trace(go.Scatter(x=dd["now"], y=dd.index, mode="markers", name=f"{LAST_YEAR} ({WINDOW})",
                              marker=dict(color=NAVY, size=10, line=dict(color="white", width=2)),
                              hovertemplate=f"%{{y}}, {LAST_YEAR}: %{{x:.0f}}% of 2019<extra></extra>"))
-    fig.add_vline(x=100, line=dict(color=MUTED, width=1, dash="dot"),
-                  annotation_text="2019 level", annotation_position="bottom right")
+    fig.add_vline(x=100, line=dict(color=MUTED, width=1, dash="dot"))
     fig.update_xaxes(ticksuffix="%", range=[0, 125])
     show(style(fig, 720, legend=True))
     best, worst = dd["now"].idxmax(), dd["now"].idxmin()
     st.markdown(f'<p class="note">{best} is back to {dd.loc[best, "now"]:.0f}% of its 2019 light. '
-                f'{worst} is at {dd.loc[worst, "now"]:.0f}%. Each line shows how far a district climbed back from its 2022 low.</p>',
+                f'{worst} is at {dd.loc[worst, "now"]:.0f}%. Each line shows how far a district climbed back from its 2022 low. The dashed line is the 2019 level.</p>',
                 unsafe_allow_html=True)
 else:
     gap = (piv[2019] - piv[LAST_YEAR]).clip(lower=0)
@@ -335,8 +335,8 @@ s = gov[gov["governorate"] == hl].dropna(subset=["smooth"])
 fig.add_trace(go.Scatter(x=s["date"], y=s["smooth"], mode="lines", line=dict(color=MAROON, width=3),
                          name=hl, hovertemplate=f"{hl} %{{x|%b %Y}}: %{{y:.0f}}%<extra></extra>"))
 fig.add_annotation(x=s["date"].iloc[-1], y=s["smooth"].iloc[-1], text=f"<b>{hl}</b>", showarrow=False,
-                   xanchor="left", xshift=6, font=dict(color=INK))
-fig.update_xaxes(range=[gov["date"].min(), gov["date"].max() + pd.DateOffset(months=20)])
+                   xanchor="right", yanchor="bottom", yshift=8, font=dict(color=MAROON),
+                   bgcolor="rgba(255,255,255,0.8)")
 fig.add_hline(y=100, line=dict(color=MUTED, width=1, dash="dot"))
 fig.update_yaxes(ticksuffix="%", title=None)
 show(style(fig, 400))
