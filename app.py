@@ -176,11 +176,11 @@ st.markdown(
 st.header("2. Find your district")
 year = st.select_slider("Year", options=list(range(2012, LAST_YEAR + 1)), value=LAST_YEAR)
 st.markdown(f"Light in {year} as a % of 2019 ({WINDOW} of each year, so years compare fairly). "
-            "The darker the district, the further it is below its 2019 light.")
+            "The darker the district, the closer it is to its 2019 light.")
 
 map_df = level[[year]].rename(columns={year: "pct"}).reset_index()
 map_df["pct"] = map_df["pct"].round(0)
-scale = [[0, "#4A0B1D"], [0.4, MAROON], [1, "#EADCE0"]]
+scale = [[0, "#F2E8EB"], [0.6, MAROON], [1, "#4A0B1D"]]
 geo = load_geo()
 drawn = False
 if geo is not None:
